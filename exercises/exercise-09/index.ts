@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { resolve } from 'dns';
 
 /*
 
@@ -71,8 +72,19 @@ type ApiResponse<T> = (
     }
 );
 
-function promisify(arg: unknown): unknown {
-    return null;
+type PromisifyOldFunctionDefinition<T> = (callback: (response: ApiResponse<T>) => void) => void;
+type PromisifyNewFunctionDefinition<T> = () => Promise<T>;
+
+function promisify<T>(oldFunction: PromisifyOldFunctionDefinition<T>): PromisifyNewFunctionDefinition<T> {
+    return () => new Promise((resolve, reject) => {
+        oldFunction((response) => {
+            if (response.status === 'error') {
+                reject(new Error(response.error));
+                return;
+            }
+            resolve(response.data);
+        });
+    });
 }
 
 const oldApi = {
@@ -103,7 +115,7 @@ const oldApi = {
 };
 
 const api = {
-    requestAdmins: promisify(oldApi.requestAdmins),
+    requestAdmins: promisify<Admin[]>(oldApi.requestAdmins),
     requestUsers: promisify(oldApi.requestUsers),
     requestCurrentServerTime: promisify(oldApi.requestCurrentServerTime),
     requestCoffeeMachineQueueLength: promisify(oldApi.requestCoffeeMachineQueueLength)
